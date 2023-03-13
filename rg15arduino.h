@@ -1,6 +1,9 @@
 #ifndef _RG15ARDUINO_H_
 #define _RG15ARDUINO_H_
 #include "Stream.h"
+#include "Arduino.h"
+
+const unsigned int MAX_MESSAGE_LENGTH = 256; 
 
 enum Unit {
     in,mm,
@@ -19,7 +22,8 @@ public:
 //    unsigned int xTBTips;
 //    float xTbEventAcc, xTbInt;
     bool metric;
-    char unit[4];
+    //char unt[12];
+	char unt[4]; 
 
     //arduino::String getAvailable();
 	String getAvailable();
@@ -30,7 +34,7 @@ public:
     bool restartDevice();
 
     //Updates acc, eventAcc, totalAcc, rInt & metric
-    bool poll();
+    int poll();
     //Check if the device is still alive
     bool ping();
     bool setBaud(int baudCode);

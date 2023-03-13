@@ -1,28 +1,68 @@
-#include "rg15arduino.h"
+#include "rg15arduino.h" 
 
 //"Acc 1.234 in, EventAcc 0.002 in, TotalAcc 0.003 in, RInt 0.082 iph";
-bool RG15Arduino::poll() {
-    stream->write('r');
-    stream->write('\n');
-	delay(500);
+// Edited by Ricardo Toledo-Crow, Jason Cayetano 
+// March 13. 2023 
+// part of the RG15Arduino class 
+// should look the same as the code from the sketch, except with RG15Arduino:: in front of the names 
+// of the functions 
 
-    String response = stream->readStringUntil('\n');
-    if(response.startsWith(F("Acc"))) {
+int RG15Arduino::poll() { //Constructor, which defines what will happen when an object is created 
+  //long int start; // for timing debug
+  int flag = 0; 
+   
+  if (Serial1.available() == 0){
+    Serial1.print("r\n"); 
+  }
+  else
+	  Serial.print('-'); // to check if sending command twice or more
+  
+  start = millis();
+  //Serial.print(start);Serial.print(" diff ");
+  while(!Serial1.available()) {
+	  if ((millis()-start)>100) {
+		  Serial.println("timeout = 1");
+		  flag = 3;
+		  return flag;
+	  };
+	  Serial.print('.');
+  }
+  //Serial.println(millis()-start);
+  
+  static int rxmessage_pos = 0; // why is satic needed here?
+  static char rxmessage[MAX_MESSAGE_LENGTH]; 
+	
+  while (Serial1.available())  { 
+    char inByte = (char)Serial1.read();
+	delay(3);	// magic delay lets rg15 respond
+    
+	if ( inByte != '\n' && (rxmessage_pos < MAX_MESSAGE_LENGTH - 1) ) //if the char is not a new line and the message is less than 1
+    { rxmessage[rxmessage_pos] = inByte; 
+      rxmessage_pos++; 
+    } 
+    else // end of transmission. 
+    { rxmessage[rxmessage_pos] = '\0'; 
 
-        char accB[7], eventAccB[7], totalAccB[7], rIntB[7];
-
-        sscanf (response.c_str(),"%*s %s %[^,] , %*s %s %*s %*s %s %*s %*s %s", &accB, &unit, &eventAccB, &totalAccB, &rIntB);
+      if (strstr(rxmessage, "Acc ")) { // see if we have valid data and parse
+        char accB[12], eventAccB[12], totalAccB[12], rIntB[12]; 
+        sscanf (rxmessage,"%*s %s %[^,], %*s %s %*s %*s %s %*s %*s %s", &accB, &unt, &eventAccB, &totalAccB, &rIntB);
 
         acc = atof(accB);
         eventAcc = atof(eventAccB);
         totalAcc = atof(totalAccB);
         rInt = atof(rIntB);
 
-        metric = !(unit[0] == 'i' && unit[1] == 'n');
+        // metric = !(unt[0] == 'i' && unt[1] == 'n');
+		flag = 1; // got valid data
+	  }
+	  else 
+		flag = 2; // got response but no data in it
 
-        return true;
-    }
-    return false;
+	  Serial.println(rxmessage); 
+	  rxmessage_pos = 0; 
+    } 
+  } 
+  return flag; 
 }
 
 bool RG15Arduino::ping() {
