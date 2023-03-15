@@ -1,21 +1,21 @@
 #include "rg15arduino.h" 
 
+// NGENS ASRC CUNY RToledo-Crow, JCayetano March 13 2023 
+// from RG15Arduino class by Hydreon for RG15 rain gauge 
+
 //"Acc 1.234 in, EventAcc 0.002 in, TotalAcc 0.003 in, RInt 0.082 iph";
-// Edited by Ricardo Toledo-Crow, Jason Cayetano 
-// March 13. 2023 
-// part of the RG15Arduino class 
-// should look the same as the code from the sketch, except with RG15Arduino:: in front of the names 
-// of the functions 
 
 int RG15Arduino::poll() { //Constructor, which defines what will happen when an object is created 
 
-	long int start; // for timing debug
+	long int start; // for timeout check, timing debug
+	int flag =0;
    
-	if (!Serial1.available()) {
-		Serial1.print("r\n"); 
+	if (!stream->available()) {
+		stream->write('r');
+		stream->write('\n');
 	}
 	else {
-		Serial.println('*'); // to check if sending command twice or more
+		//Serial.println('*'); // to check if sending command twice or more
 	}
 	
 	start = millis();
@@ -24,10 +24,10 @@ int RG15Arduino::poll() { //Constructor, which defines what will happen when an 
 	do {
 		int flag =0;
 
-		if ((millis()-start)>50) {
-			Serial.println("timeout 1");
-			flag = 3;
-			return 3; // timeout error
+		if ((millis()-start)>300) {
+			//Serial.println("timeout:1");
+			flag = 0;
+			return flag; // timeout error
 		};
 		//Serial.print('.');
 		//Serial.println(millis()-start);
@@ -35,10 +35,10 @@ int RG15Arduino::poll() { //Constructor, which defines what will happen when an 
 		static int rxmessage_pos = 0; // why is satic needed here?
 		static char rxmessage[MAX_MESSAGE_LENGTH]; 
 	
-		while (Serial1.available())  { 
+		while (stream->available())  { 
     
-			char inByte = (char)Serial1.read();
-			delay(10);	// magic delay lets rg15 respond
+			char inByte = stream->read();
+			//delay(5);	// magic delay lets rg15 respond
     
 			if ( inByte == '\n' || (rxmessage_pos == MAX_MESSAGE_LENGTH - 1) ) { // end of transmission or too long
 				
@@ -46,22 +46,23 @@ int RG15Arduino::poll() { //Constructor, which defines what will happen when an 
 				rxmessage_pos = 0;
 				
 				if (strstr(rxmessage, "Acc ")) { 
-					char accB[12], eventAccB[12], totalAccB[12], rIntB[12]; 
-					sscanf (rxmessage,"%*s %s %[^,], %*s %s %*s %*s %s %*s %*s %s", &accB, &unt, &eventAccB, &totalAccB, &rIntB);
+					char accB[7], eventAccB[7], totalAccB[7], rIntB[7]; 
+
+					sscanf (rxmessage,"%*s %s %[^,], %*s %s %*s %*s %s %*s %*s %s", &accB, &units, &eventAccB, &totalAccB, &rIntB);
 
 					acc = atof(accB);		
 					eventAcc = atof(eventAccB);
 					totalAcc = atof(totalAccB);
 					rInt = atof(rIntB);
 					//metric = !(unt[0] == 'i' && unt[1] == 'n');
-					//flag = 1;
-					Serial.println(rxmessage);
-					return 0; // data read successful
+					flag = 1;
+					//Serial.println(rxmessage);
+					return flag; // data read successful
 				}
 				else {// end of transmission. 
-					//flag = 2;
+					flag = 2;
 					Serial.println(rxmessage);
-					return 1; // no data but response from rg15
+					return flag; // no data but response from rg15
 				}
 			}
 			else { // add char to message
@@ -69,7 +70,7 @@ int RG15Arduino::poll() { //Constructor, which defines what will happen when an 
 			}
 		}
 	} while(1);//!Serial1.available());
-	return 4; // unknown timing error
+	return 3; // unknown timing error  
 }
 
 bool RG15Arduino::ping() {
